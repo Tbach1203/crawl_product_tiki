@@ -1,7 +1,7 @@
 import pandas as pd
 import requests
 import json
-import time
+# import time
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -15,7 +15,6 @@ headers = {
 # ==========================
 # UTILITIES
 # ==========================
-
 def get_Id(df):
     return df['id'].tolist()
 
@@ -35,17 +34,14 @@ def product(data):
         "images": data.get("images")[0].get("base_url") if data.get("images") else None
     }
 
-
 # ==========================
 # FILE MANAGEMENT
 # ==========================
-
 file_lock = threading.Lock()
 
 PROCESSED_FILE = "processed_ids.txt"
 ERROR_FILE = "error_ids.txt"
 PRODUCT_DIR = "product"
-
 os.makedirs(PRODUCT_DIR, exist_ok=True)
 
 def load_processed_ids():
@@ -70,23 +66,15 @@ def load_error_ids():
 
 def save_error_id(pid):
     with file_lock:
+        errors = load_error_ids() 
+        if pid in errors:         
+            return
         with open(ERROR_FILE, "a", encoding="utf-8") as f:
             f.write(f"{pid}\n")
-
-def remove_error_id(pid):
-    with file_lock:
-        errors = load_error_ids()
-        if pid in errors:
-            errors.remove(pid)
-        with open(ERROR_FILE, "w", encoding="utf-8") as f:
-            for e in errors:
-                f.write(f"{e}\n")
-
 
 # ==========================
 # FETCH PRODUCT
 # ==========================
-
 def fetch_product(product_id, retries=5):
     for _ in range(retries):
         response = requests.get("https://api.tiki.vn/product-detail/api/v1/products/{}".format(product_id), headers=headers, timeout=10)
@@ -94,25 +82,20 @@ def fetch_product(product_id, retries=5):
             return product(response.json())
     return None
 
-
 # ==========================
 # SAVE BY CHUNK (1000 / file)
 # ==========================
-
 def save_chunk(chunk, chunk_index):
     filename = os.path.join(PRODUCT_DIR, f"products_{chunk_index}.json")
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(chunk, f, indent=4, ensure_ascii=False)
-    print(f"✔ Đã lưu file: {filename}")
-
+    print(f"Đã lưu file: {filename}")
 
 # ==========================
 # MAIN PROCESS
 # ==========================
-
 def info_products(ids, max_workers=15):
     processed_ids = load_processed_ids()
-
     print(f"Đã xử lý: {len(processed_ids)} sản phẩm")
     ids_to_run = [pid for pid in ids if pid not in processed_ids]
     print(f"Còn lại cần xử lý: {len(ids_to_run)} sản phẩm")
@@ -123,10 +106,8 @@ def info_products(ids, max_workers=15):
     existing_files = [f for f in os.listdir(PRODUCT_DIR) if f.startswith("products_")]
     if existing_files:
         chunk_index = max(int(f.split("_")[1].split(".")[0]) for f in existing_files) + 1
-
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_id = {executor.submit(fetch_product, pid): pid for pid in ids_to_run}
-
         for future in tqdm(as_completed(future_to_id), total=len(ids_to_run)):
             pid = future_to_id[future]
             try:
@@ -141,51 +122,15 @@ def info_products(ids, max_workers=15):
                     save_chunk(chunk, chunk_index)
                     chunk = []
                     chunk_index += 1
-
             except Exception as e:
                 print(f"Error processing product {pid}: {e}")
                 save_error_id(pid)
-
     if chunk:
         save_chunk(chunk, chunk_index)
-
-    print("\n=== BẮT ĐẦU XỬ LÝ LẠI ID LỖI ===")
-    retry_error_products(chunk_index)
-
-
-# ==========================
-# RETRY ERROR IDS
-# ==========================
-def retry_error_products(start_chunk_index, max_workers=10):
-    error_ids = load_error_ids()
-    if not error_ids:
-        print("Không còn ID lỗi nào.")
-        return
-    print(f"Tổng số ID lỗi cần xử lý lại: {len(error_ids)}")
-    chunk = []
-    chunk_index = start_chunk_index + 1
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_id = {executor.submit(fetch_product, pid): pid for pid in error_ids}
-        for future in tqdm(as_completed(future_to_id), total=len(error_ids)):
-            pid = future_to_id[future]
-            result = future.result()
-            if result:
-                chunk.append(result)
-                save_processed_id(pid)
-                remove_error_id(pid)
-            if len(chunk) >= 1000:
-                save_chunk(chunk, chunk_index)
-                chunk = []
-                chunk_index += 1
-    if chunk:
-        save_chunk(chunk, chunk_index)
-    print("✔ Hoàn thành xử lý lại ID lỗi.")
-
 
 # ==========================
 # RUN
 # ==========================
-
 if __name__ == "__main__":
     df = pd.read_csv("products-0-200000.csv")
     ids = get_Id(df)
