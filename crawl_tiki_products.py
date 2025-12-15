@@ -39,9 +39,9 @@ def product(data):
 # ==========================
 file_lock = threading.Lock()
 
-PROCESSED_FILE = "processed_ids.txt"
-ERROR_FILE = "error_ids.txt"
-PRODUCT_DIR = "product"
+PROCESSED_FILE = "processed_ids_1.txt"
+ERROR_FILE = "error_ids_1.txt"
+PRODUCT_DIR = "product_1"
 os.makedirs(PRODUCT_DIR, exist_ok=True)
 
 def load_processed_ids():
@@ -101,6 +101,7 @@ def info_products(ids, max_workers=15):
     print(f"Còn lại cần xử lý: {len(ids_to_run)} sản phẩm")
 
     chunk = []
+    chunk_ids = []
     chunk_index = 1
 
     existing_files = [f for f in os.listdir(PRODUCT_DIR) if f.startswith("products_")]
@@ -114,12 +115,14 @@ def info_products(ids, max_workers=15):
                 result = future.result()
                 if result:
                     chunk.append(result)
-                    save_processed_id(pid)
+                    chunk_ids.append(pid)
                 else:
                     save_error_id(pid)
 
                 if len(chunk) >= 1000:
                     save_chunk(chunk, chunk_index)
+                    for _pid in chunk_ids:
+                        save_processed_id(_pid)
                     chunk = []
                     chunk_index += 1
             except Exception as e:
