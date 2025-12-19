@@ -1,7 +1,12 @@
 config/database.ini
-unit_test/
-list_ids/*.txt
+
+#Enviroment for this project
 venv/
+
+#output
+data/input/
+data/list_ids/
+data/product/
 
 # Python cache
 __pycache__/
