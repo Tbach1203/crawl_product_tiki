@@ -45,8 +45,7 @@ Each JSON file contains a list of product objects with the following structure:
   "price": 199000,
   "description": "Normalized description text",
   "images_url": [
-    "https://image-url-1",
-    "https://image-url-2"
+    "https://image-url-1"
   ]
 }
 ```
@@ -56,7 +55,6 @@ Each JSON file contains a list of product objects with the following structure:
 - **HTML Parsing**: beautifulsoup4
 - **Data Format**: JSON
 - **Progress Tracking**: tqdm
-- **Logging**: logging (built-in)
 - **Environment Management**: venv
 - **Version Control**: Git 
 ## Getting Started
